@@ -7,7 +7,7 @@ const LINUX_CLANG_DIRS: &'static [&'static str] = &["/usr/lib", "/usr/lib/llvm",
 const MAC_CLANG_DIR: &'static str = "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib";
 
 fn main() {
-    let possible_clang_dirs = if let Ok(dir) = env::var_string("LIBCLANG_PATH") {
+    let possible_clang_dirs = if let Ok(dir) = env::var("LIBCLANG_PATH") {
         vec![dir]
     } else if cfg!(any(target_os = "linux", target_os = "freebsd")) {
         LINUX_CLANG_DIRS.iter().map(ToString::to_string).collect()
@@ -30,9 +30,59 @@ fn main() {
         }
     }).next();
 
+    macro_rules! qw {
+        //($($i:ident),+,) => (qw!($($i),+));
+        //($($i:ident),*) => ([$(stringify!($i)),*]);
+        ($($i:ident)*) => (vec!($(stringify!($i)),*));
+    }
 
     if let Some(clang_dir) = maybe_clang_dir {
-        println!("cargo:rustc-flags=-l clang -L {}", clang_dir.as_str().unwrap());
+        let libs = qw![
+            LLVMAnalysis
+            LLVMBitReader
+            LLVMCore
+            LLVMLTO
+            LLVMLinker
+            LLVMMC
+            LLVMMCParser
+            LLVMObjCARCOpts
+            LLVMObject
+            LLVMOption
+            LLVMScalarOpts
+            LLVMSupport
+            LLVMTarget
+            LLVMTransformUtils
+            LLVMVectorize
+            LLVMipa
+            LLVMipo
+            clang
+            clangARCMigrate
+            clangAST
+            clangASTMatchers
+            clangAnalysis
+            clangBasic
+            clangDriver
+            clangEdit
+            clangFormat
+            clangFrontend
+            clangIndex
+            clangLex
+            clangParse
+            clangRewrite
+            clangRewriteFrontend
+            clangSema
+            clangSerialization
+            clangStaticAnalyzerCheckers
+            clangStaticAnalyzerCore
+            clangStaticAnalyzerFrontend
+            clangTooling
+        ];
+
+        print!("cargo:rustc-flags=");
+        for lib in libs {
+            print!("-l static={} ", lib);
+        }
+        println!("-L {} -l ncursesw -l z -l stdc++", clang_dir.as_str().unwrap());
     } else {
         panic!("Unable to find {}", clang_lib);
     }
