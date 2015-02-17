@@ -93,6 +93,17 @@ fn parse_args(args: &[String]) -> ParseResult {
                     options.match_pat.push(args[ix + 1].clone());
                     ix += 2;
                 }
+                "-sym" => {
+                    if ix + 1u >= args_len {
+                        return ParseResult::ParseErr("Missing sym pattern".to_string());
+                    }
+                    options.sym_pat.push(args[ix + 1u].clone());
+                    ix += 2u;
+                }
+                "-types-only" => {
+                    options.types_only = true;
+                    ix += 1u;
+                }
                 "-builtins" => {
                     options.builtins = true;
                     ix += 1;
@@ -134,6 +145,8 @@ Options:
                                whose name contains <name>
                                If multiple -match options are provided, files
                                matching any rule are bound to.
+    -sym <regex>               Only output bindings with a symbol name matching
+                               the given regular expression.
     -builtins                  Output bindings for builtin definitions
                                (for example __builtin_va_list)
     -allow-unknown-types       Don't fail if we encounter types we do not support,

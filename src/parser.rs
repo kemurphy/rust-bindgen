@@ -10,6 +10,8 @@ use std::rc::Rc;
 
 use syntax::abi;
 
+use regex::Regex;
+
 use types as il;
 use types::*;
 use clang as cx;
@@ -22,6 +24,8 @@ pub struct ClangParserOptions {
     pub builtin_names: HashSet<String>,
     pub builtins: bool,
     pub match_pat: Vec<String>,
+    pub sym_pat: Vec<Regex>,
+    pub types_only: bool,
     pub emit_ast: bool,
     pub fail_on_unknown_type: bool,
     pub override_enum_ty: Option<il::IKind>,
@@ -461,6 +465,10 @@ fn visit_top<'r>(cursor: &Cursor,
 
     match cursor.kind() {
         CXCursor_StructDecl | CXCursor_UnionDecl => {
+            if !ctx.options.sym_pat.is_empty() {
+                return CXChildVisit_Continue;
+            }
+
             fwd_decl(ctx, cursor, |ctx_| {
                 let decl = decl_name(ctx_, cursor);
                 let ci = decl.compinfo();
@@ -473,6 +481,10 @@ fn visit_top<'r>(cursor: &Cursor,
             return CXChildVisit_Continue;
         }
         CXCursor_EnumDecl => {
+            if !ctx.options.sym_pat.is_empty() {
+                return CXChildVisit_Continue;
+            }
+
             fwd_decl(ctx, cursor, |ctx_| {
                 let decl = decl_name(ctx_, cursor);
                 let ei = decl.enuminfo();
@@ -485,6 +497,10 @@ fn visit_top<'r>(cursor: &Cursor,
             return CXChildVisit_Continue;
         }
         CXCursor_FunctionDecl => {
+            if ctx.options.types_only {
+                return CXChildVisit_Continue;
+            }
+
             let linkage = cursor.linkage();
             if linkage != CXLinkage_External && linkage != CXLinkage_UniqueExternal {
                 return CXChildVisit_Continue;
@@ -493,6 +509,11 @@ fn visit_top<'r>(cursor: &Cursor,
             let func = decl_name(ctx, cursor);
             let vi = func.varinfo();
             let mut vi = vi.borrow_mut();
+            if ctx.options.sym_pat.is_empty()
+            || !ctx.options.sym_pat.iter().any(|r| r.is_match(&vi.name)) {
+                return CXChildVisit_Continue;
+            }
+
 
             vi.ty = TFuncPtr(mk_fn_sig(ctx, &cursor.cur_type(), cursor));
             ctx.globals.push(func);
@@ -500,6 +521,10 @@ fn visit_top<'r>(cursor: &Cursor,
             return CXChildVisit_Continue;
         }
         CXCursor_VarDecl => {
+            if ctx.options.types_only {
+                return CXChildVisit_Continue;
+            }
+
             let linkage = cursor.linkage();
             if linkage != CXLinkage_External && linkage != CXLinkage_UniqueExternal {
                 return CXChildVisit_Continue;
@@ -510,12 +535,20 @@ fn visit_top<'r>(cursor: &Cursor,
             let vi = var.varinfo();
             let mut vi = vi.borrow_mut();
             vi.ty = ty.clone();
+            if ctx.options.sym_pat.is_empty() || !ctx.options.sym_pat.iter().any(|r| r.is_match(vi.name.as_slice())) {
+                return CXChildVisit_Continue;
+            }
+
             vi.is_const = cursor.cur_type().is_const();
             ctx.globals.push(var);
 
             return CXChildVisit_Continue;
         }
         CXCursor_TypedefDecl => {
+            if !ctx.options.sym_pat.is_empty() {
+                return CXChildVisit_Continue;
+            }
+
             let mut under_ty = cursor.typedef_type();
             if under_ty.kind() == CXType_Unexposed {
                 under_ty = under_ty.canonical_type();

@@ -4,6 +4,7 @@
 
 extern crate syntax;
 extern crate rustc;
+extern crate regex;
 extern crate libc;
 #[macro_use] extern crate log;
 
@@ -17,6 +18,8 @@ use syntax::print::{pp, pprust};
 use syntax::print::pp::eof;
 use syntax::ptr::P;
 use rustc::plugin::Registry;
+
+use regex::Regex;
 
 use types::Global;
 
@@ -36,6 +39,8 @@ pub fn plugin_registrar(reg: &mut Registry) {
 
 pub struct BindgenOptions {
     pub match_pat: Vec<String>,
+    pub sym_pat: Vec<String>,
+    pub types_only: bool,
     pub builtins: bool,
     pub links: Vec<(String, LinkType)>,
     pub emit_ast: bool,
@@ -48,6 +53,8 @@ impl Default for BindgenOptions {
     fn default() -> BindgenOptions {
         BindgenOptions {
             match_pat: Vec::new(),
+            sym_pat: Vec::new(),
+            types_only: false,
             builtins: false,
             links: Vec::new(),
             emit_ast: false,
@@ -157,6 +164,8 @@ fn parse_headers(options: &BindgenOptions, logger: &Logger) -> Result<Vec<Global
         builtin_names: builtin_names(),
         builtins: options.builtins,
         match_pat: options.match_pat.clone(),
+        sym_pat: options.sym_pat.iter().map(|s| Regex::new(s.as_slice()).unwrap()).collect(),
+        types_only: options.types_only,
         emit_ast: options.emit_ast,
         fail_on_unknown_type: options.fail_on_unknown_type,
         override_enum_ty: str_to_ikind(options.override_enum_ty.as_slice()),

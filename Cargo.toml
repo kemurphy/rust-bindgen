@@ -13,6 +13,10 @@ name = "bindgen"
 path = "src/lib.rs"
 plugin = true
 
+[dependencies]
+
+regex = "*"
+
 [[bin]]
 
 name = "bindgen"
