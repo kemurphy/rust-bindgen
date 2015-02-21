@@ -13,6 +13,7 @@ use syntax::codemap::{Span, Spanned, respan, ExpnInfo, NameAndSpan, MacroBang};
 use syntax::ext::base;
 use syntax::ext::build::AstBuilder;
 use syntax::ext::expand::ExpansionConfig;
+use syntax::feature_gate::Features;
 use syntax::owned_slice::OwnedSlice;
 use syntax::parse;
 use syntax::attr::mk_attr_id;
@@ -115,10 +116,15 @@ fn enum_name(name: &String) -> String {
 
 pub fn gen_mod(links: &[(String, LinkType)], globs: Vec<Global>, span: Span) -> Vec<P<ast::Item>> {
     // Create a dummy ExtCtxt. We only need this for string interning and that uses TLS.
+    let features = Features {
+        allow_quote: true,
+        ..Features::new()
+    };
+
     let cfg = ExpansionConfig {
         crate_name: "xxx".to_string(),
-        enable_quotes: true,
         recursion_limit: 64,
+        features: Some(&features),
     };
     let sess = &parse::new_parse_sess();
     let mut ctx = GenCtx {
